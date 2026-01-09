@@ -1,0 +1,30 @@
+{
+  "name": "@vivi/media",
+  "version": "1.0.0",
+  "description": "Media processing pipeline for ViVi CMO Agent",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test:unit": "jest",
+    "lint": "eslint src --ext .ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vivi/common": "workspace:*",
+    "aws-sdk": "^2.1450.0",
+    "minio": "^7.0.0",
+    "sharp": "^0.32.0",
+    "fluent-ffmpeg": "^2.1.2",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.0",
+    "@types/uuid": "^9.0.0",
+    "@types/jest": "^29.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  }
+}

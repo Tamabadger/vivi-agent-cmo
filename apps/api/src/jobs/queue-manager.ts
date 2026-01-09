@@ -138,7 +138,12 @@ export class QueueManager {
       console.log(`🖼️ Processing media for org ${orgId}: ${metadata.originalName}`);
       
       // Process the media asset
-      const processedAsset = await this.mediaProcessor.processAsset(file, metadata, orgId);
+      const processedAsset = await this.mediaProcessor.processMedia(
+        file,
+        metadata.originalName,
+        metadata.mimetype,
+        orgId
+      );
       
       // Store in database
       await db.insert(mediaAssets).values({

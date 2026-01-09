@@ -245,9 +245,6 @@ importers:
       uuid:
         specifier: ^9.0.0
         version: 9.0.1
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
     devDependencies:
       '@types/fluent-ffmpeg':
         specifier: ^2.1.0
@@ -264,6 +261,9 @@ importers:
       ts-jest:
         specifier: ^29.0.0
         version: 29.4.1(@babel/core@7.28.3)(esbuild@0.18.20)(jest@29.7.0)(typescript@5.9.2)
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.2
 
   packages/roi:
     dependencies:

@@ -1,0 +1,73 @@
+# LiteLLM Proxy Configuration for ViVi CMO Agent
+# This configuration enables intelligent model routing
+
+model_list:
+  # OpenAI Models
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      max_tokens: 128000
+      input_cost_per_token: 0.000005
+      output_cost_per_token: 0.000015
+
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      max_tokens: 128000
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
+
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      max_tokens: 16385
+      input_cost_per_token: 0.0000005
+      output_cost_per_token: 0.0000015
+
+  # Embedding Models
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      max_tokens: 8192
+      input_cost_per_token: 0.00000002
+
+  - model_name: text-embedding-3-large
+    litellm_params:
+      model: openai/text-embedding-3-large
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      max_tokens: 8192
+      input_cost_per_token: 0.00000013
+
+# Router settings for intelligent model selection
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 3
+  timeout: 60
+  allowed_fails: 3
+  cooldown_time: 60
+
+# General settings
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+
+# Environment variables for callbacks
+environment_variables:
+  LANGFUSE_PUBLIC_KEY: os.environ/LANGFUSE_PUBLIC_KEY
+  LANGFUSE_SECRET_KEY: os.environ/LANGFUSE_SECRET_KEY
+  LANGFUSE_HOST: os.environ/LANGFUSE_HOST

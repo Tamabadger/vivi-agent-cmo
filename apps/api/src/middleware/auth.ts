@@ -42,10 +42,26 @@ const RATE_LIMIT_MAX = 100; // 100 requests per window
 
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Skip auth entirely for development when SKIP_AUTH is true
+    if (process.env.SKIP_AUTH === 'true') {
+      // Use dev defaults - no database lookup required
+      req.orgId = (req.headers['x-org-id'] as string) || 'dev-org-id';
+      req.userId = (req.headers['x-user-id'] as string) || 'dev-user-id';
+      req.userRole = (req.headers['x-user-role'] as string) || 'admin';
+      req.planTier = (req.headers['x-plan-tier'] as string) || 'PRIME';
+      req.user = {
+        id: req.userId,
+        email: (req.headers['x-user-email'] as string) || 'dev@example.com',
+        role: req.userRole,
+        orgId: req.orgId
+      };
+      return next();
+    }
+
     // Rate limiting check
     const clientId = req.ip || 'unknown';
     const now = Date.now();
-    
+
     if (!rateLimitStore.has(clientId)) {
       rateLimitStore.set(clientId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     } else {
@@ -72,22 +88,12 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
     // Verify JWT token
     let decoded: any;
     try {
-      // For development, allow bypass with environment variable
-      if (process.env.NODE_ENV === 'development' && process.env.AUTH_BYPASS === 'true') {
-        decoded = {
-          sub: req.headers['x-user-id'] || 'dev-user-id',
-          'https://vivi.ai/org_id': req.headers['x-org-id'] || 'dev-org-id',
-          'https://vivi.ai/email': req.headers['x-user-email'] || 'dev@example.com',
-          'https://vivi.ai/role': req.headers['x-user-role'] || 'admin'
-        };
-      } else {
-        // Verify JWT with Auth0 public key
-        decoded = jwt.verify(token, await getAuth0PublicKey(), {
-          audience: verifyOptions.audience,
-          issuer: verifyOptions.issuer,
-          algorithms: verifyOptions.algorithms as jwt.Algorithm[]
-        });
-      }
+      // Verify JWT with Auth0 public key
+      decoded = jwt.verify(token, await getAuth0PublicKey(), {
+        audience: verifyOptions.audience,
+        issuer: verifyOptions.issuer,
+        algorithms: verifyOptions.algorithms as jwt.Algorithm[]
+      });
     } catch (error) {
       throw new AuthenticationError('Invalid or expired token');
     }
@@ -110,7 +116,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
 
     // Check if user exists in database
     let [user] = await db.select().from(users).where(eq(users.id, userId));
-    
+
     if (!user) {
       // Create user if they don't exist (first login)
       [user] = await db.insert(users).values({
