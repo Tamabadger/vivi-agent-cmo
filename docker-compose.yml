@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: vivi-postgres
+    environment:
+      POSTGRES_DB: vivi_cmo_agent
+      POSTGRES_USER: vivi
+      POSTGRES_PASSWORD: vivi_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vivi -d vivi_cmo_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and queues
+  redis:
+    image: redis:7-alpine
+    container_name: vivi-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO for S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    container_name: vivi-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # LiteLLM Proxy for model routing
+  litellm:
+    image: ghcr.io/berriai/litellm:main
+    container_name: vivi-litellm
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-your-openai-key}
+      LITELLM_MASTER_KEY: litellm_master_key_123
+      LITELLM_HOST: 0.0.0.0
+      LITELLM_PORT: 4000
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm-config.yaml:/app/litellm-config.yaml
+    command: litellm --config /app/litellm-config.yaml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Langfuse for LLM observability
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: vivi-langfuse
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET: langfuse_secret_123
+      NEXTAUTH_URL: http://localhost:3000
+      LANGFUSE_SECRET_KEY: langfuse_secret_key_123
+      LANGFUSE_PUBLIC_KEY: langfuse_public_key_123
+    ports:
+      - "3000:3000"
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Langfuse database
+  langfuse-db:
+    image: postgres:15
+    container_name: vivi-langfuse-db
+    environment:
+      POSTGRES_DB: langfuse
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: vivi-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:16686/api/services"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  langfuse_db_data:
+
+networks:
+  default:
+    name: vivi-network

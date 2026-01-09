@@ -1,0 +1,30 @@
+{
+  "name": "vivi-cmo-agent",
+  "version": "1.0.0",
+  "description": "ViVi CMO Agent - AI-powered social media management platform",
+  "private": true,
+  "scripts": {
+    "dev": "npx pnpm --filter api dev",
+    "build": "npx pnpm --filter api build",
+    "test": "npx pnpm run test:unit && npx pnpm run test:integration",
+    "test:unit": "npx pnpm --recursive run test:unit",
+    "test:integration": "npx pnpm --filter api test:integration",
+    "db:migrate": "npx pnpm --filter api db:migrate",
+    "db:seed": "npx pnpm --filter api db:seed",
+    "lint": "npx pnpm --recursive run lint",
+    "type-check": "npx pnpm --recursive run type-check"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "prettier": "^3.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

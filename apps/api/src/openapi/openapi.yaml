@@ -1,0 +1,793 @@
+openapi: 3.1.0
+info:
+  title: ViVi CMO Agent API
+  description: AI-powered social media management platform API
+  version: 1.0.0
+  contact:
+    name: ViVi Team
+    email: api@vivi.ai
+  license:
+    name: Proprietary
+    url: https://vivi.ai/license
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.vivi.ai
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      description: Basic health check endpoint
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    description: Process uptime in seconds
+                  environment:
+                    type: string
+                    example: "development"
+                  version:
+                    type: string
+                    example: "1.0.0"
+  
+  /api/health/db:
+    get:
+      summary: Database health check
+      description: Check database connectivity
+      tags: [Health]
+      responses:
+        '200':
+          description: Database is connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  database:
+                    type: string
+                    example: "connected"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/onboarding/submit:
+    post:
+      summary: Submit onboarding answers
+      description: Submit onboarding answers to seed persona/policies/quotas/context
+      tags: [Onboarding]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  $ref: '#/components/schemas/OnboardingAnswers'
+      responses:
+        '201':
+          description: Onboarding completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Onboarding completed successfully"
+                  orgId:
+                    type: string
+                    format: uuid
+                  planTier:
+                    type: string
+                    enum: [LITE, PLUS, PRO, PRIME]
+                  features:
+                    type: array
+                    items:
+                      type: string
+                  upgradeSuggestions:
+                    type: array
+                    items:
+                      type: string
+
+  /api/onboarding/status:
+    get:
+      summary: Get onboarding status
+      description: Check if onboarding is complete
+      tags: [Onboarding]
+      responses:
+        '200':
+          description: Onboarding status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completed:
+                    type: boolean
+                  missing:
+                    type: array
+                    items:
+                      type: string
+                  orgId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/persona:
+    get:
+      summary: Get persona profile
+      description: Retrieve persona profile and tone settings
+      tags: [Persona]
+      responses:
+        '200':
+          description: Persona profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaProfile'
+        '404':
+          description: Persona profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Update persona profile
+      description: Update or create persona profile
+      tags: [Persona]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                industry:
+                  type: string
+                  example: "technology"
+                locale:
+                  type: string
+                  example: "en"
+                brandValues:
+                  type: array
+                  items:
+                    type: string
+                  example: ["innovation", "quality", "customer_focus"]
+                objectives:
+                  type: array
+                  items:
+                    type: string
+                  example: ["brand_awareness", "lead_generation"]
+      responses:
+        '200':
+          description: Persona profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Persona profile updated successfully"
+                  orgId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/persona/contextbundle:
+    get:
+      summary: Get context bundle
+      description: Return persona+policies+entitlements+filters (cached)
+      tags: [Persona]
+      responses:
+        '200':
+          description: Context bundle retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextBundle'
+
+  /api/plan/variants:
+    post:
+      summary: Generate caption variants
+      description: Generate 2 (Lite) or 3 (Plus+) variants per platform
+      tags: [Plan]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetId, platforms]
+              properties:
+                assetId:
+                  type: string
+                  format: uuid
+                  description: Media asset ID
+                platforms:
+                  type: array
+                  items:
+                    type: string
+                    enum: [instagram, facebook, google_business, tiktok, linkedin, youtube_shorts]
+      responses:
+        '200':
+          description: Caption variants generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CaptionVariant'
+                  maxVariants:
+                    type: integer
+                    description: Maximum variants allowed for plan tier
+                  supportedPlatforms:
+                    type: array
+                    items:
+                      type: string
+                  planTier:
+                    type: string
+                    enum: [LITE, PLUS, PRO, PRIME]
+
+  /api/plan/schedule:
+    post:
+      summary: Schedule a post
+      description: Create scheduled post with entitlement checks
+      tags: [Plan]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, assetId, caption, scheduledFor]
+              properties:
+                platform:
+                  type: string
+                  enum: [instagram, facebook, google_business, tiktok, linkedin, youtube_shorts]
+                assetId:
+                  type: string
+                  format: uuid
+                caption:
+                  type: string
+                  minLength: 1
+                scheduledFor:
+                  type: string
+                  format: date-time
+                boostLevel:
+                  type: integer
+                  minimum: 0
+                  maximum: 3
+                  default: 0
+      responses:
+        '201':
+          description: Post scheduled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Post scheduled successfully"
+                  scheduledPost:
+                    $ref: '#/components/schemas/ScheduledPost'
+                  planTier:
+                    type: string
+                    enum: [LITE, PLUS, PRO, PRIME]
+
+  /api/grow/trendtap/feed:
+    get:
+      summary: Get TrendTap feed
+      description: Lite: teaser; Plus: weekly; Pro: /pro feed
+      tags: [Grow]
+      parameters:
+        - name: vertical
+          in: query
+          description: Industry vertical
+          schema:
+            type: string
+            example: "technology"
+        - name: region
+          in: query
+          description: Geographic region
+          schema:
+            type: string
+            example: "global"
+      responses:
+        '200':
+          description: TrendTap feed retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  feed:
+                    $ref: '#/components/schemas/TrendTapFeed'
+                  feedType:
+                    type: string
+                    enum: [teaser, weekly, pro]
+                  planTier:
+                    type: string
+                    enum: [LITE, PLUS, PRO, PRIME]
+
+  /api/grow/reviews/reply:
+    post:
+      summary: Generate review reply
+      description: Generate review reply with tone and policy compliance
+      tags: [Grow]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reviewId, reply, tone]
+              properties:
+                reviewId:
+                  type: string
+                  format: uuid
+                reply:
+                  type: string
+                  description: Review content to reply to
+                tone:
+                  type: string
+                  enum: [professional, friendly, empathetic]
+      responses:
+        '200':
+          description: Review reply generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Review reply generated successfully"
+                  reviewId:
+                    type: string
+                    format: uuid
+                  reply:
+                    type: string
+                  tone:
+                    type: string
+
+  /api/listen/webhooks/{provider}:
+    post:
+      summary: Ingest webhook
+      description: Receive and queue webhook from social platforms
+      tags: [Listen]
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [instagram, facebook, google_business, tiktok, linkedin, youtube_shorts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Platform-specific webhook payload
+      responses:
+        '200':
+          description: Webhook received and queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook received and queued"
+                  provider:
+                    type: string
+                  orgId:
+                    type: string
+                    format: uuid
+
+  /api/listen/digest:
+    get:
+      summary: Get listen digest
+      description: Lite digest of social media activity
+      tags: [Listen]
+      responses:
+        '200':
+          description: Listen digest retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  digest:
+                    $ref: '#/components/schemas/ListenDigest'
+                  planTier:
+                    type: string
+                    enum: [LITE, PLUS, PRO, PRIME]
+
+  /api/voice/command:
+    post:
+      summary: Process voice command
+      description: Process voice commands with intent recognition
+      tags: [Voice]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [command]
+              properties:
+                command:
+                  type: string
+                  description: Voice command text
+                  example: "Plan my week from assets"
+                context:
+                  type: object
+                  description: Additional context
+      responses:
+        '200':
+          description: Voice command processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  intent:
+                    type: string
+                    example: "plan.week.from.assets"
+                  response:
+                    $ref: '#/components/schemas/VoiceResponse'
+                  planTier:
+                    type: string
+                    enum: [LITE, PLUS, PRO, PRIME]
+
+  /api/sentry/toggle:
+    post:
+      summary: Toggle Sentry mode
+      description: Enable/disable autonomous operations (Prime only)
+      tags: [Sentry]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [on]
+              properties:
+                on:
+                  type: boolean
+                  description: Enable or disable Sentry mode
+                mode:
+                  type: string
+                  enum: [dry-run, auto]
+                  default: "dry-run"
+      responses:
+        '200':
+          description: Sentry mode toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Sentry Mode enabled"
+                  status:
+                    $ref: '#/components/schemas/SentryStatus'
+                  planTier:
+                    type: string
+                    enum: [LITE, PLUS, PRO, PRIME]
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    OnboardingAnswers:
+      type: object
+      required: [industry, locale, brandValues, objectives, targetAudience, contentPreferences, platforms, goals]
+      properties:
+        industry:
+          type: string
+          example: "technology"
+        locale:
+          type: string
+          example: "en"
+        brandValues:
+          type: array
+          items:
+            type: string
+          example: ["innovation", "quality", "customer_focus"]
+        objectives:
+          type: array
+          items:
+            type: string
+          example: ["brand_awareness", "lead_generation"]
+        targetAudience:
+          type: object
+          properties:
+            demographics:
+              type: array
+              items:
+                type: string
+            interests:
+              type: array
+              items:
+                type: string
+            behaviors:
+              type: array
+              items:
+                type: string
+        contentPreferences:
+          type: object
+          properties:
+            tone:
+              type: string
+              enum: [professional, casual, friendly, authoritative, creative]
+            style:
+              type: string
+              enum: [informative, entertaining, educational, promotional]
+            frequency:
+              type: string
+              enum: [daily, weekly, biweekly, monthly]
+        platforms:
+          type: array
+          items:
+            type: string
+            enum: [instagram, facebook, google_business, tiktok, linkedin, youtube_shorts]
+        goals:
+          type: array
+          items:
+            type: string
+            enum: [brand_awareness, engagement, lead_generation, sales, community_building]
+
+    PersonaProfile:
+      type: object
+      properties:
+        persona:
+          type: object
+          properties:
+            orgId:
+              type: string
+              format: uuid
+            industry:
+              type: string
+            locale:
+              type: string
+            brandValues:
+              type: array
+              items:
+                type: string
+            objectives:
+              type: array
+              items:
+                type: string
+        tone:
+          type: object
+          properties:
+            orgId:
+              type: string
+              format: uuid
+            sliders:
+              type: object
+            presets:
+              type: array
+              items:
+                type: string
+        orgId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    ContextBundle:
+      type: object
+      properties:
+        persona:
+          $ref: '#/components/schemas/PersonaProfile'
+        policies:
+          type: array
+          items:
+            type: object
+        features:
+          type: array
+          items:
+            type: string
+        planTier:
+          type: string
+          enum: [LITE, PLUS, PRO, PRIME]
+        orgId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    CaptionVariant:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: [instagram, facebook, google_business, tiktok, linkedin, youtube_shorts]
+        variantIdx:
+          type: integer
+        caption:
+          type: string
+        hashtags:
+          type: array
+          items:
+            type: string
+        complianceNotes:
+          type: object
+
+    ScheduledPost:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [instagram, facebook, google_business, tiktok, linkedin, youtube_shorts]
+        assetId:
+          type: string
+          format: uuid
+        caption:
+          type: string
+        scheduledFor:
+          type: string
+          format: date-time
+        boostLevel:
+          type: integer
+          minimum: 0
+          maximum: 3
+        status:
+          type: string
+          enum: [draft, scheduled, published, failed]
+
+    TrendTapFeed:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [teaser, weekly, pro]
+        vertical:
+          type: string
+        region:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              description:
+                type: string
+              engagement:
+                type: integer
+              growth:
+                type: string
+              fit:
+                type: number
+        generatedAt:
+          type: string
+          format: date-time
+
+    ListenDigest:
+      type: object
+      properties:
+        summary:
+          type: string
+        mentions:
+          type: integer
+        sentiment:
+          type: string
+        topTopics:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    VoiceResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [answer, plan, navigation, debrief, general]
+        content:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    SentryStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+          enum: [dry-run, auto]
+        timestamp:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Onboarding
+    description: User onboarding and setup
+  - name: Persona
+    description: Brand persona and tone management
+  - name: Plan
+    description: Content planning and scheduling
+  - name: Grow
+    description: Growth and engagement features
+  - name: Listen
+    description: Social media monitoring and listening
+  - name: Voice
+    description: Voice command processing
+  - name: Sentry
+    description: Autonomous operations (Prime only)
